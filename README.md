@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 7 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 8 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -108,6 +108,16 @@ PATCH /api/v1/memberships/{id}/cancel                                           
 
 El estado que se persiste es solo `ACTIVE`/`CANCELLED` (lo que cambia por una acción); `EXPIRED` nunca se escribe — se deriva comparando la fecha de fin contra hoy en el momento de responder (`Membership.getEffectiveStatus()`), así que no hace falta ningún job que recorra membresías vencidas. `MembershipService` no importa los repositorios de `member`/`plan`: pasa por `MemberService`/`PlanService`, así que un `memberId` o `planId` de otro gimnasio devuelve 404 solo, sin código de validación de tenant explícito.
 
+## Pagos
+
+```
+POST /api/v1/payments                          { membershipId, amount, method }   GYM_ADMIN — method: CASH | CARD | TRANSFER | OTHER
+GET  /api/v1/memberships/{membershipId}/payments                                  GYM_ADMIN
+GET  /api/v1/payments/{id}                                                        GYM_ADMIN
+```
+
+Un pago se registra, no se edita — `Payment` no tiene ningún método de actualización, a propósito (una corrección real necesitaría su propio mecanismo de ajuste, fuera del MVP). `TRAINER` no tiene ningún acceso acá (a diferencia de socios/planes) — así lo marca la matriz de permisos de la Fase 0. Cada pago queda auditado (`PAYMENT_REGISTERED`), tal como pedía la Fase 0 ("login, pagos, altas y bajas de socio").
+
 ## Testing backend
 
 ```bash
@@ -124,4 +134,4 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 7 — Planes y membresías.** `Plan` y `Membership` siguen el patrón de `Member`: `AbstractTenantEntity` desde el día uno, sin filtrado manual. `Membership` referencia `Member` y `Plan` como relaciones de dominio normales (eso no cruza la regla de "no importar infraestructura de otro módulo" — lo que sí la respeta es que `MembershipService` habla con `MemberService`/`PlanService`, nunca con sus repositorios). Vencimiento de membresía calculado, no un job por lotes. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 8 — Pagos.** `Payment` cierra el ciclo alta de socio → contratación → cobro. Inmutable por diseño, sin acceso de `TRAINER`, auditado. Con esto termina el "camino feliz" completo de un gimnasio: dar de alta un socio, venderle un plan, y cobrarle — las Fases 9 en adelante son sobre asistencia, dashboards y todo lo que se construye encima de estos datos. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.

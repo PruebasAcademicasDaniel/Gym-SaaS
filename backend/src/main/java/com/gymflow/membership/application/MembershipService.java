@@ -47,9 +47,13 @@ public class MembershipService {
         return membershipRepository.findByMemberIdOrderByStartDateDesc(memberId);
     }
 
+    /** Puerta pública para otros módulos (payment) — igual que MemberService/PlanService.getById(). */
+    public Membership getById(UUID id) {
+        return membershipRepository.findById(id).orElseThrow(() -> new MembershipNotFoundException(id));
+    }
+
     @Transactional
     public void cancel(UUID id) {
-        Membership membership = membershipRepository.findById(id).orElseThrow(() -> new MembershipNotFoundException(id));
-        membership.cancel();
+        getById(id).cancel();
     }
 }
