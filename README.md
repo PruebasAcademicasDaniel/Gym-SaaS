@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 6 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 7 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -92,6 +92,22 @@ PATCH /api/v1/members/{id}/deactivate                                        GYM
 
 `Member` es una persona (un socio) sin acceso al sistema — no confundir con el rol `MEMBER` de arriba, que es sobre iniciar sesión (portal del cliente, Fase 13). Es la primera entidad que extiende `AbstractTenantEntity`: a diferencia de `User`, ningún endpoint de socios filtra por `gymId` a mano — Hibernate lo hace solo. Alta y baja quedan auditadas (`MEMBER_CREATED` / `MEMBER_DEACTIVATED`).
 
+## Planes y membresías
+
+```
+POST  /api/v1/plans                           { name, description?, price, durationDays }   GYM_ADMIN
+GET   /api/v1/plans                                                                          GYM_ADMIN, TRAINER
+GET   /api/v1/plans/{id}                                                                     GYM_ADMIN, TRAINER
+PATCH /api/v1/plans/{id}                       { name, description?, price, durationDays }   GYM_ADMIN
+PATCH /api/v1/plans/{id}/deactivate                                                          GYM_ADMIN
+
+POST  /api/v1/memberships                      { memberId, planId }                          GYM_ADMIN — contrata; endDate = hoy + duración del plan
+GET   /api/v1/members/{memberId}/memberships                                                 GYM_ADMIN, TRAINER — histórico completo, no solo la activa
+PATCH /api/v1/memberships/{id}/cancel                                                         GYM_ADMIN
+```
+
+El estado que se persiste es solo `ACTIVE`/`CANCELLED` (lo que cambia por una acción); `EXPIRED` nunca se escribe — se deriva comparando la fecha de fin contra hoy en el momento de responder (`Membership.getEffectiveStatus()`), así que no hace falta ningún job que recorra membresías vencidas. `MembershipService` no importa los repositorios de `member`/`plan`: pasa por `MemberService`/`PlanService`, así que un `memberId` o `planId` de otro gimnasio devuelve 404 solo, sin código de validación de tenant explícito.
+
 ## Testing backend
 
 ```bash
@@ -108,4 +124,4 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 6 — Clientes.** `Member` es la primera entidad de negocio real que extiende `AbstractTenantEntity` — el mecanismo de aislamiento de la Fase 4, probado hasta acá solo con un fixture de test, ya protege datos reales sin una sola línea de filtrado manual. CRUD completo (alta, listado, detalle, edición, baja lógica), acceso de lectura para `TRAINER` además de `GYM_ADMIN`, y auditoría de alta/baja de socio (pedida explícitamente en la Fase 0). Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 7 — Planes y membresías.** `Plan` y `Membership` siguen el patrón de `Member`: `AbstractTenantEntity` desde el día uno, sin filtrado manual. `Membership` referencia `Member` y `Plan` como relaciones de dominio normales (eso no cruza la regla de "no importar infraestructura de otro módulo" — lo que sí la respeta es que `MembershipService` habla con `MemberService`/`PlanService`, nunca con sus repositorios). Vencimiento de membresía calculado, no un job por lotes. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
