@@ -9,6 +9,8 @@ import com.gymflow.auth.infrastructure.web.LoginRequest;
 import com.gymflow.auth.infrastructure.web.MeResponse;
 import com.gymflow.auth.infrastructure.web.RefreshRequest;
 import com.gymflow.auth.infrastructure.web.TokenResponse;
+import com.gymflow.gym.domain.Gym;
+import com.gymflow.gym.infrastructure.persistence.GymRepository;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,9 @@ class AuthFlowIT {
     private UserRepository userRepository;
 
     @Autowired
+    private GymRepository gymRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private String email;
@@ -60,8 +65,9 @@ class AuthFlowIT {
 
     @BeforeEach
     void seedUser() {
+        Gym gym = gymRepository.saveAndFlush(new Gym("Gimnasio de prueba", "gym-" + UUID.randomUUID()));
         email = "it-" + UUID.randomUUID() + "@gymflow.dev";
-        userRepository.save(new User(email, passwordEncoder.encode(PASSWORD), Role.GYM_ADMIN, UUID.randomUUID()));
+        userRepository.save(new User(email, passwordEncoder.encode(PASSWORD), Role.GYM_ADMIN, gym.getId()));
     }
 
     @Test

@@ -14,8 +14,8 @@ import java.util.UUID;
 
 /**
  * Identidad con la que se inicia sesión. gymId es null solo para
- * SUPER_ADMIN (alcance de plataforma). No tiene FK a gym todavía porque
- * esa tabla no existe hasta la Fase 5 — ver V1__create_auth_tables.sql.
+ * SUPER_ADMIN (alcance de plataforma). Tiene FK a gym desde la Fase 5 —
+ * ver V3__create_gym_table.sql (V1 la dejó pendiente porque gym no existía).
  */
 @Entity
 @Table(name = "app_user")
@@ -49,6 +49,7 @@ public class User {
     }
 
     public User(String email, String passwordHash, Role role, UUID gymId) {
+        validateGymAssignment(role, gymId);
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
@@ -58,6 +59,7 @@ public class User {
 
     /** Reconstrucción completa (tests, mapeos) — la creación normal usa el constructor de arriba, que deja que la base asigne el id. */
     public User(UUID id, String email, String passwordHash, Role role, UUID gymId, boolean enabled, Instant createdAt) {
+        validateGymAssignment(role, gymId);
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -65,6 +67,22 @@ public class User {
         this.gymId = gymId;
         this.enabled = enabled;
         this.createdAt = createdAt;
+    }
+
+    /**
+     * Invariante de tenant clave para toda la Fase 4: todo rol salvo
+     * SUPER_ADMIN necesita un gymId. Sin esto, un usuario mal creado con
+     * gymId null terminaría con acceso sin restricción (ver
+     * GymTenantIdentifierResolver — null significa "sin filtro").
+     */
+    private static void validateGymAssignment(Role role, UUID gymId) {
+        boolean requiresGym = role != Role.SUPER_ADMIN;
+        if (requiresGym && gymId == null) {
+            throw new IllegalArgumentException("El rol " + role + " requiere un gymId.");
+        }
+        if (!requiresGym && gymId != null) {
+            throw new IllegalArgumentException("SUPER_ADMIN no puede tener gymId — es de alcance de plataforma.");
+        }
     }
 
     @PrePersist
@@ -96,6 +114,10 @@ public class User {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public void disable() {
+        this.enabled = false;
     }
 
     public Instant getCreatedAt() {

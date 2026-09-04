@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo en Fase 1 (inicialización). El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 5 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -67,6 +67,19 @@ GET  /api/v1/auth/me       (Bearer token)       -> usuario autenticado actual
 
 El resto de los endpoints requieren `Authorization: Bearer <accessToken>`. Con el perfil `dev` activo (por defecto en `docker compose up`) existe un usuario de prueba: `admin@gymflow.dev` / `GymFlow!Dev2026` (`SUPER_ADMIN`) — ver `backend/src/main/resources/db/migration-dev/`. Ese seed nunca corre fuera del perfil `dev`.
 
+## Gimnasios y usuarios internos
+
+```
+POST  /api/v1/gyms              { name, slug }                    SUPER_ADMIN — alta de un gimnasio nuevo
+GET   /api/v1/gyms/{id}                                           SUPER_ADMIN (cualquiera) o GYM_ADMIN (solo el propio)
+
+POST  /api/v1/users             { email, password, role, gymId? } GYM_ADMIN (en su propio gym) o SUPER_ADMIN (con gymId — así se da de alta el primer GYM_ADMIN de un gimnasio nuevo)
+GET   /api/v1/users                                               GYM_ADMIN — lista los usuarios de su propio gimnasio
+PATCH /api/v1/users/{id}/disable                                  GYM_ADMIN — deshabilita un usuario de su propio gimnasio
+```
+
+`role` en `POST /api/v1/users` solo acepta `GYM_ADMIN` o `TRAINER` — `MEMBER` se da de alta en la Fase 6 (portal del socio), `SUPER_ADMIN` no se crea por API. El `gymId` del body solo lo usa un actor `SUPER_ADMIN`; si lo manda un `GYM_ADMIN` se ignora — su propio gimnasio (el del token) manda siempre, así no hay forma de crear ni tocar usuarios de otro gimnasio pasando un `gymId` distinto.
+
 ## Testing backend
 
 ```bash
@@ -75,6 +88,12 @@ mvn test      # unit — rápido, sin Docker
 mvn verify    # + integración (Testcontainers, necesita Docker corriendo)
 ```
 
+## Multi-tenancy
+
+Columna discriminadora (`gym_id`), no schema ni base por tenant — ver Fase 0. El aislamiento no depende de que cada query se acuerde de filtrar: toda entidad que extienda `AbstractTenantEntity` (`backend/.../shared/tenant/`) queda automáticamente restringida al tenant actual vía el mecanismo `@TenantId` de Hibernate. `TenantContext` (un `ThreadLocal`) lo puebla `JwtAuthenticationFilter` a partir del claim `gymId` del JWT — nunca de un parámetro de la request — y se limpia siempre al final de cada request.
+
+Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sistema **no muestra nada** a través de esas entidades, nunca "todo" — falla cerrado, no abierto. `User` es la única excepción deliberada: no extiende `AbstractTenantEntity` porque el login necesita poder buscar por email a través de todos los tenants antes de que exista una sesión.
+
 ## Estado
 
-**Fase 3 — Seguridad y autenticación.** Spring Security stateless con JWT propio (sin Keycloak todavía), BCrypt, rotación de refresh token, CORS restringido, errores homogéneos (RFC 7807) y auditoría mínima de login. Multi-tenancy real (`TenantContext`, aislamiento por `tenant_id`) llega en la Fase 4 — hoy `gym_id` es solo una columna en `app_user`, todavía sin filtro automático. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 5 — Gestión de gimnasios y usuarios.** `Gym` es la primera entidad de negocio real (raíz del tenant, no usa `AbstractTenantEntity` — es la unidad de aislamiento, no algo aislado). `app_user.gym_id` ya tiene su FK a `gym.id`. RBAC real con `@PreAuthorize` por rol. `User` sigue sin el mecanismo automático de la Fase 4 (necesita búsqueda cross-tenant en el login), así que su aislamiento por gimnasio en listados/bajas es manual — `UserRepository.findByGymId` — y quedó probado explícitamente, incluyendo que un `GYM_ADMIN` no puede escapar a otro gimnasio ni pasando un `gymId` distinto en el body. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
