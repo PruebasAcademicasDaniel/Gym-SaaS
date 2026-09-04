@@ -1,0 +1,15 @@
+### Entornos locales ###
+.env
+!.env.example
+
+### IDE ###
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+out/
+
+### OS ###
+.DS_Store
+Thumbs.db
