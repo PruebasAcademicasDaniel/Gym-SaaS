@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 5 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 6 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -78,7 +78,19 @@ GET   /api/v1/users                                               GYM_ADMIN — 
 PATCH /api/v1/users/{id}/disable                                  GYM_ADMIN — deshabilita un usuario de su propio gimnasio
 ```
 
-`role` en `POST /api/v1/users` solo acepta `GYM_ADMIN` o `TRAINER` — `MEMBER` se da de alta en la Fase 6 (portal del socio), `SUPER_ADMIN` no se crea por API. El `gymId` del body solo lo usa un actor `SUPER_ADMIN`; si lo manda un `GYM_ADMIN` se ignora — su propio gimnasio (el del token) manda siempre, así no hay forma de crear ni tocar usuarios de otro gimnasio pasando un `gymId` distinto.
+`role` en `POST /api/v1/users` solo acepta `GYM_ADMIN` o `TRAINER` — el rol `MEMBER` (login del portal del socio) recién se da de alta en la Fase 13, `SUPER_ADMIN` no se crea por API. El `gymId` del body solo lo usa un actor `SUPER_ADMIN`; si lo manda un `GYM_ADMIN` se ignora — su propio gimnasio (el del token) manda siempre, así no hay forma de crear ni tocar usuarios de otro gimnasio pasando un `gymId` distinto.
+
+## Socios
+
+```
+POST  /api/v1/members               { firstName, lastName, email?, phone? }   GYM_ADMIN
+GET   /api/v1/members                                                        GYM_ADMIN, TRAINER
+GET   /api/v1/members/{id}                                                   GYM_ADMIN, TRAINER
+PATCH /api/v1/members/{id}          { firstName, lastName, email?, phone? }   GYM_ADMIN
+PATCH /api/v1/members/{id}/deactivate                                        GYM_ADMIN
+```
+
+`Member` es una persona (un socio) sin acceso al sistema — no confundir con el rol `MEMBER` de arriba, que es sobre iniciar sesión (portal del cliente, Fase 13). Es la primera entidad que extiende `AbstractTenantEntity`: a diferencia de `User`, ningún endpoint de socios filtra por `gymId` a mano — Hibernate lo hace solo. Alta y baja quedan auditadas (`MEMBER_CREATED` / `MEMBER_DEACTIVATED`).
 
 ## Testing backend
 
@@ -96,4 +108,4 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 5 — Gestión de gimnasios y usuarios.** `Gym` es la primera entidad de negocio real (raíz del tenant, no usa `AbstractTenantEntity` — es la unidad de aislamiento, no algo aislado). `app_user.gym_id` ya tiene su FK a `gym.id`. RBAC real con `@PreAuthorize` por rol. `User` sigue sin el mecanismo automático de la Fase 4 (necesita búsqueda cross-tenant en el login), así que su aislamiento por gimnasio en listados/bajas es manual — `UserRepository.findByGymId` — y quedó probado explícitamente, incluyendo que un `GYM_ADMIN` no puede escapar a otro gimnasio ni pasando un `gymId` distinto en el body. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 6 — Clientes.** `Member` es la primera entidad de negocio real que extiende `AbstractTenantEntity` — el mecanismo de aislamiento de la Fase 4, probado hasta acá solo con un fixture de test, ya protege datos reales sin una sola línea de filtrado manual. CRUD completo (alta, listado, detalle, edición, baja lógica), acceso de lectura para `TRAINER` además de `GYM_ADMIN`, y auditoría de alta/baja de socio (pedida explícitamente en la Fase 0). Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.

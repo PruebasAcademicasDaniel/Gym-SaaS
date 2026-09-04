@@ -58,4 +58,28 @@ public class AuditLog {
             createdAt = Instant.now();
         }
     }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getGymId() {
+        return gymId;
+    }
+
+    public UUID getActorUserId() {
+        return actorUserId;
+    }
+
+    public AuditAction getAction() {
+        return action;
+    }
+
+    public String getDetail() {
+        return detail;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }
