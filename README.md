@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 12 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 16 completas (MVP funcional cerrado en la Fase 14). El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -12,7 +12,7 @@ frontend/   React 19 + TypeScript + Vite + Tailwind CSS 4
 ```
 
 Cada módulo del backend (`auth`, `gym`, `user`, `member`, `plan`, `membership`, `payment`,
-`attendance`, `risk`, `notification`, `dashboard`, `audit`) vive bajo `backend/src/main/java/com/gymflow/`.
+`attendance`, `risk`, `notification`, `dashboard`, `portal`, `ai`, `audit`) vive bajo `backend/src/main/java/com/gymflow/`.
 Un módulo nunca importa clases de infraestructura de otro módulo.
 
 ## Requisitos
@@ -165,6 +165,18 @@ src/
 
 **Verificación de esta fase**: `npm run build` (type-check + build) y `npm run lint` limpios; `docker compose up` con las tres imágenes reales, confirmando que Vite sirve el bundle sin errores de transformación, que `VITE_API_URL` se inyecta correctamente en runtime, y que el preflight CORS + login real funcionan con el `Origin` del frontend. **No se probó de forma interactiva en un navegador** (sin herramienta de automatización de navegador disponible en esta sesión) — recomendado abrir `http://localhost:5173` manualmente para confirmar la experiencia visual antes de dar la fase por cerrada del todo.
 
+## CI/CD
+
+GitHub Actions (`.github/workflows/ci.yml`) corre en cada push/PR a `main` o `develop`, en tres jobs:
+
+```
+backend        mvn verify (unit + Testcontainers) — Java 21
+frontend       npm ci && npm run lint && npm run build — Node 22
+docker-build   docker build de backend/ y frontend/ (solo si los dos jobs anteriores pasan)
+```
+
+No hay job de deploy todavía — llevar estas imágenes a un entorno real es la Fase 17. `docker-build` no publica nada a ningún registry, solo confirma que ambas imágenes arman sin error antes de gastar minutos de CI en eso si el código ya está roto.
+
 ## Testing backend
 
 ```bash
@@ -181,6 +193,6 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 12 — Notificaciones.** Recordatorios de vencimiento por email (disparo manual + `@Scheduled` diario cross-tenant). Primer módulo que maneja `TenantContext` a mano fuera de `JwtAuthenticationFilter` — verificado con un test dedicado a que no se filtre entre gimnasios en la misma corrida. Botón "Enviar recordatorios" agregado al dashboard del frontend. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fases 0 a 16 completas.** MVP funcional (sección 7 del documento de arquitectura) cerrado en la Fase 14; Fase 15 le agregó una primera capa de IA (mensajes personalizados a clientes en riesgo, sin proveedor externo conectado todavía); Fase 16 automatiza build/test/lint en CI (ver sección arriba). Backend verificado con `mvn verify` (Testcontainers, no mocks para la base) en cada fase; frontend probado de forma interactiva en un navegador real desde la Fase 13 en adelante (login, CRUD completo, portal del cliente, dashboard, manejo de errores). Detalle fase por fase, decisiones y correcciones sobre la marcha: documento de arquitectura (Fase 0, roadmap de 19 fases).
 
-**Fase 11 (referencia) — Frontend.** Portal administrativo completo (login, dashboard, socios, planes, membresías, pagos, asistencia) consumiendo toda la API construida en las Fases 3 a 10. Primera fase que tocó `frontend/` desde el scaffold de la Fase 1. **Verificado por build/lint/CORS/logs, no interactivamente en un navegador** (sin herramienta de automatización disponible en la sesión que la implementó) — pendiente probarlo a mano.
+Próximo: Fase 17 (deploy a un entorno real) o Fase 18 (hardening comercial) — sin decidir cuál todavía.
