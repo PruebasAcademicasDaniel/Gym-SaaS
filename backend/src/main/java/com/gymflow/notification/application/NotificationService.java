@@ -1,5 +1,8 @@
 package com.gymflow.notification.application;
 
+import com.gymflow.ai.application.GeneratedMessage;
+import com.gymflow.ai.application.MessageGenerator;
+import com.gymflow.ai.application.RiskAlertContext;
 import com.gymflow.member.domain.Member;
 import com.gymflow.membership.application.MembershipService;
 import com.gymflow.membership.domain.Membership;
@@ -29,14 +32,16 @@ public class NotificationService {
     private final MembershipService membershipService;
     private final RiskService riskService;
     private final EmailSender emailSender;
+    private final MessageGenerator messageGenerator;
 
     public NotificationService(
             NotificationRepository notificationRepository, MembershipService membershipService, RiskService riskService,
-            EmailSender emailSender) {
+            EmailSender emailSender, MessageGenerator messageGenerator) {
         this.notificationRepository = notificationRepository;
         this.membershipService = membershipService;
         this.riskService = riskService;
         this.emailSender = emailSender;
+        this.messageGenerator = messageGenerator;
     }
 
     /** @return cuántos recordatorios se mandaron realmente (ya excluye los que no tenían email o ya habían sido notificados). */
@@ -73,6 +78,10 @@ public class NotificationService {
      * en riesgo la próxima vez que corre esto, ya no se le vuelve a avisar
      * mientras dure esa misma membresía — evita spamear el mismo aviso día
      * tras día.
+     *
+     * El contenido del mensaje lo redacta MessageGenerator (Fase 15, capa
+     * de IA sobre el motor de riesgo) — esta clase solo orquesta
+     * idempotencia, envío y auditoría, igual que antes.
      */
     @Transactional
     public int sendRiskAlerts() {
@@ -89,12 +98,11 @@ public class NotificationService {
                 continue; // sin email no hay a quién mandarle nada — no es un error, solo un dato que falta
             }
 
-            String subject = "Te extrañamos en el gimnasio";
-            String body = "Hola " + member.getFirstName() + ", notamos que no venís desde el " + candidate.lastActivity() + ". ¡Te esperamos pronto!";
+            GeneratedMessage message = messageGenerator.generateRiskAlert(new RiskAlertContext(member.getFirstName(), candidate.lastActivity()));
 
-            emailSender.send(member.getEmail(), subject, body);
+            emailSender.send(member.getEmail(), message.subject(), message.body());
             Membership membership = membershipService.getById(candidate.membershipId());
-            notificationRepository.save(new Notification(member, membership, NotificationType.MEMBER_AT_RISK, body));
+            notificationRepository.save(new Notification(member, membership, NotificationType.MEMBER_AT_RISK, message.body()));
             sent++;
         }
 
