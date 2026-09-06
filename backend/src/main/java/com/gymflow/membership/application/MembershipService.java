@@ -3,6 +3,7 @@ package com.gymflow.membership.application;
 import com.gymflow.member.application.MemberService;
 import com.gymflow.member.domain.Member;
 import com.gymflow.membership.domain.Membership;
+import com.gymflow.membership.domain.MembershipStatus;
 import com.gymflow.membership.infrastructure.persistence.MembershipRepository;
 import com.gymflow.plan.application.PlanService;
 import com.gymflow.plan.domain.Plan;
@@ -55,5 +56,16 @@ public class MembershipService {
     @Transactional
     public void cancel(UUID id) {
         getById(id).cancel();
+    }
+
+    /** Socios distintos con una membresía vigente hoy — puerta pública para dashboard. */
+    public long countActiveMembers() {
+        return membershipRepository.countDistinctMembersWithStatusAndNotExpired(MembershipStatus.ACTIVE, LocalDate.now());
+    }
+
+    /** Membresías vigentes que vencen dentro de la ventana [hoy, hoy + días] — puerta pública para dashboard. */
+    public long countExpiringWithinDays(int days) {
+        LocalDate today = LocalDate.now();
+        return membershipRepository.countByStatusAndEndDateBetween(MembershipStatus.ACTIVE, today, today.plusDays(days));
     }
 }

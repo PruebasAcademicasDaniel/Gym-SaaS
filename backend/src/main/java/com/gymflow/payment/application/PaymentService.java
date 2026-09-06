@@ -49,4 +49,10 @@ public class PaymentService {
         membershipService.getById(membershipId); // 404 temprano si la membresía no existe o es de otro gimnasio
         return paymentRepository.findByMembershipIdOrderByPaymentDateDesc(membershipId);
     }
+
+    /** Suma de pagos del mes calendario en curso (desde el día 1 hasta hoy) — puerta pública para dashboard. */
+    public BigDecimal sumRevenueForCurrentMonth() {
+        LocalDate today = LocalDate.now();
+        return paymentRepository.sumAmountByPaymentDateBetween(today.withDayOfMonth(1), today);
+    }
 }

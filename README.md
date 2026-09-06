@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 9 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 10 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -127,6 +127,14 @@ GET  /api/v1/members/{memberId}/attendance                        GYM_ADMIN, TRA
 
 Primer endpoint donde `TRAINER` escribe, no solo lee — la matriz de permisos de la Fase 0 le da "Registrar / lectura" acá. Un registro por check-in, sin deduplicar (ni por día): si el motor de riesgo de la Fase 14 necesita "días distintos asistidos", se agrupa por fecha en esa consulta puntual. Sin auditoría — la Fase 0 solo pidió auditar login, pagos y altas/bajas de socio; un check-in no entra en ese alcance.
 
+## Dashboard
+
+```
+GET /api/v1/dashboard   { activeMembers, membershipsExpiringSoon, revenueThisMonth }   GYM_ADMIN
+```
+
+Sin entidad ni tabla propia — agrega datos de `member`/`membership`/`payment` a través de su capa de aplicación pública (`MembershipService`, `PaymentService`), nunca de sus repositorios. `membershipsExpiringSoon` usa una ventana de 7 días (se va a alinear con el recordatorio de la Fase 12). Deliberadamente **sin** "clientes en riesgo" — la Fase 0 lo menciona en el MVP, pero el motor de detección no existe hasta la Fase 14; mostrar un número inventado sería peor que no mostrar nada. Solo `GYM_ADMIN` — la vista "acotada a sus socios" de `TRAINER` que pide la matriz de permisos necesita el modelo de asignación trainer↔socio que la Fase 0 dejó fuera del MVP, así que queda diferida junto con esa asignación.
+
 ## Testing backend
 
 ```bash
@@ -143,4 +151,4 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 9 — Asistencia.** `Attendance` sigue el mismo patrón de aislamiento que `Member`/`Plan`/`Membership`/`Payment` (`AbstractTenantEntity`, dependencia a través de `MemberService`, nunca del repositorio). Lo que cambia es de permisos, no de arquitectura: es el primer módulo donde `TRAINER` escribe además de leer. Con esto termina el módulo de datos operativos del gimnasio — las Fases 10 en adelante son dashboard, notificaciones y todo lo que se construye encima de estos datos. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 10 — Dashboard.** Primer módulo sin entidad propia: agrega datos de `member`/`membership`/`payment` a través de sus servicios de aplicación. Verificado con Postgres real que las queries JPQL agregadas nuevas (`count`/`sum` contra entidades `@TenantId`) respetan el aislamiento de tenant igual que los métodos derivados por nombre. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
