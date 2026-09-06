@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 8 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 9 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -118,6 +118,15 @@ GET  /api/v1/payments/{id}                                                      
 
 Un pago se registra, no se edita — `Payment` no tiene ningún método de actualización, a propósito (una corrección real necesitaría su propio mecanismo de ajuste, fuera del MVP). `TRAINER` no tiene ningún acceso acá (a diferencia de socios/planes) — así lo marca la matriz de permisos de la Fase 0. Cada pago queda auditado (`PAYMENT_REGISTERED`), tal como pedía la Fase 0 ("login, pagos, altas y bajas de socio").
 
+## Asistencia
+
+```
+POST /api/v1/attendance                            { memberId }   GYM_ADMIN, TRAINER
+GET  /api/v1/members/{memberId}/attendance                        GYM_ADMIN, TRAINER
+```
+
+Primer endpoint donde `TRAINER` escribe, no solo lee — la matriz de permisos de la Fase 0 le da "Registrar / lectura" acá. Un registro por check-in, sin deduplicar (ni por día): si el motor de riesgo de la Fase 14 necesita "días distintos asistidos", se agrupa por fecha en esa consulta puntual. Sin auditoría — la Fase 0 solo pidió auditar login, pagos y altas/bajas de socio; un check-in no entra en ese alcance.
+
 ## Testing backend
 
 ```bash
@@ -134,4 +143,4 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 8 — Pagos.** `Payment` cierra el ciclo alta de socio → contratación → cobro. Inmutable por diseño, sin acceso de `TRAINER`, auditado. Con esto termina el "camino feliz" completo de un gimnasio: dar de alta un socio, venderle un plan, y cobrarle — las Fases 9 en adelante son sobre asistencia, dashboards y todo lo que se construye encima de estos datos. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 9 — Asistencia.** `Attendance` sigue el mismo patrón de aislamiento que `Member`/`Plan`/`Membership`/`Payment` (`AbstractTenantEntity`, dependencia a través de `MemberService`, nunca del repositorio). Lo que cambia es de permisos, no de arquitectura: es el primer módulo donde `TRAINER` escribe además de leer. Con esto termina el módulo de datos operativos del gimnasio — las Fases 10 en adelante son dashboard, notificaciones y todo lo que se construye encima de estos datos. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
