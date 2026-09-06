@@ -93,6 +93,7 @@ class DashboardIT {
         assertThat(response.getBody().activeMembers()).isZero();
         assertThat(response.getBody().membershipsExpiringSoon()).isZero();
         assertThat(response.getBody().revenueThisMonth()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.getBody().membersAtRisk()).isZero();
     }
 
     @Test
@@ -160,6 +161,7 @@ class DashboardIT {
         assertThat(otherSummary.activeMembers()).isZero();
         assertThat(otherSummary.membershipsExpiringSoon()).isZero();
         assertThat(otherSummary.revenueThisMonth()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(otherSummary.membersAtRisk()).isZero();
     }
 
     private UUID createPlan(int durationDays, String price) {

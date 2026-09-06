@@ -26,4 +26,10 @@ public class NotificationController {
     public SendRemindersResponse sendExpirationReminders() {
         return new SendRemindersResponse(notificationService.sendExpirationReminders());
     }
+
+    @PostMapping("/api/v1/notifications/risk-alerts")
+    @PreAuthorize("hasRole('GYM_ADMIN')")
+    public SendRemindersResponse sendRiskAlerts() {
+        return new SendRemindersResponse(notificationService.sendRiskAlerts());
+    }
 }

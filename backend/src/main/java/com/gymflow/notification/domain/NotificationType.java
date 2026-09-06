@@ -1,9 +1,7 @@
 package com.gymflow.notification.domain;
 
-/**
- * Solo vencimiento próximo por ahora. Un tipo para "cliente en riesgo" se
- * agrega recién cuando exista el motor de detección (Fase 14) — no antes.
- */
+/** MEMBER_AT_RISK llegó en la Fase 14, cuando existió por fin el motor de detección (ver V11 migration para el CHECK constraint que lo habilita). */
 public enum NotificationType {
-    MEMBERSHIP_EXPIRING_SOON
+    MEMBERSHIP_EXPIRING_SOON,
+    MEMBER_AT_RISK
 }

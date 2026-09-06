@@ -6,13 +6,15 @@ import com.gymflow.membership.domain.Membership;
 import com.gymflow.notification.domain.Notification;
 import com.gymflow.notification.domain.NotificationType;
 import com.gymflow.notification.infrastructure.persistence.NotificationRepository;
+import com.gymflow.risk.application.AtRiskMember;
+import com.gymflow.risk.application.RiskService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Depende de MembershipService (no de MembershipRepository) — mismo
- * patrón que Fases 7/8/10. Opera siempre sobre el tenant actual del
+ * Depende de MembershipService/RiskService (no de sus repositorios) —
+ * mismo patrón que Fases 7/8/10. Opera siempre sobre el tenant actual del
  * TenantContext; no recibe gymId ni lo necesita. El caller (el endpoint
  * manual o el scheduler cross-tenant) es quien decide para qué tenant
  * corre, seteando TenantContext antes de llamar acá.
@@ -25,12 +27,15 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final MembershipService membershipService;
+    private final RiskService riskService;
     private final EmailSender emailSender;
 
     public NotificationService(
-            NotificationRepository notificationRepository, MembershipService membershipService, EmailSender emailSender) {
+            NotificationRepository notificationRepository, MembershipService membershipService, RiskService riskService,
+            EmailSender emailSender) {
         this.notificationRepository = notificationRepository;
         this.membershipService = membershipService;
+        this.riskService = riskService;
         this.emailSender = emailSender;
     }
 
@@ -55,6 +60,41 @@ public class NotificationService {
 
             emailSender.send(member.getEmail(), subject, body);
             notificationRepository.save(new Notification(member, membership, NotificationType.MEMBERSHIP_EXPIRING_SOON, body));
+            sent++;
+        }
+
+        return sent;
+    }
+
+    /**
+     * Mismo criterio de idempotencia que sendExpirationReminders: una sola
+     * alerta por membresía (no por "episodio de inactividad", que sería
+     * difícil de acotar sin reintroducir estado propio). Si un socio sigue
+     * en riesgo la próxima vez que corre esto, ya no se le vuelve a avisar
+     * mientras dure esa misma membresía — evita spamear el mismo aviso día
+     * tras día.
+     */
+    @Transactional
+    public int sendRiskAlerts() {
+        List<AtRiskMember> atRisk = riskService.listAtRiskMembers();
+        int sent = 0;
+
+        for (AtRiskMember candidate : atRisk) {
+            if (notificationRepository.existsByMembershipIdAndType(candidate.membershipId(), NotificationType.MEMBER_AT_RISK)) {
+                continue;
+            }
+
+            Member member = candidate.member();
+            if (member.getEmail() == null) {
+                continue; // sin email no hay a quién mandarle nada — no es un error, solo un dato que falta
+            }
+
+            String subject = "Te extrañamos en el gimnasio";
+            String body = "Hola " + member.getFirstName() + ", notamos que no venís desde el " + candidate.lastActivity() + ". ¡Te esperamos pronto!";
+
+            emailSender.send(member.getEmail(), subject, body);
+            Membership membership = membershipService.getById(candidate.membershipId());
+            notificationRepository.save(new Notification(member, membership, NotificationType.MEMBER_AT_RISK, body));
             sent++;
         }
 

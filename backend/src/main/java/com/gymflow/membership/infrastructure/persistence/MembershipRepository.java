@@ -38,4 +38,13 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 
     /** Mismo criterio que countByStatusAndEndDateBetween, pero trayendo las filas — para el módulo notification (Fase 12). */
     List<Membership> findByStatusAndEndDateBetween(MembershipStatus status, LocalDate from, LocalDate to);
+
+    /**
+     * Todas las membresías ACTIVE que todavía no vencieron, sin ventana
+     * superior (a diferencia de findByStatusAndEndDateBetween, que solo
+     * trae las que vencen pronto) — para el módulo risk (Fase 14), que
+     * necesita el universo completo de socios con membresía vigente, no
+     * solo los que vencen pronto.
+     */
+    List<Membership> findByStatusAndEndDateGreaterThanEqual(MembershipStatus status, LocalDate today);
 }

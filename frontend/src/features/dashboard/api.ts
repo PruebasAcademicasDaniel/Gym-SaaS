@@ -4,6 +4,7 @@ export interface DashboardSummary {
   activeMembers: number
   membershipsExpiringSoon: number
   revenueThisMonth: number
+  membersAtRisk: number
 }
 
 export function getDashboardSummary(): Promise<DashboardSummary> {

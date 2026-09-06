@@ -21,6 +21,7 @@ import com.gymflow.membership.infrastructure.web.CreateMembershipRequest;
 import com.gymflow.membership.infrastructure.web.MembershipResponse;
 import com.gymflow.notification.application.EmailSender;
 import com.gymflow.notification.infrastructure.scheduling.ExpirationReminderScheduler;
+import com.gymflow.notification.infrastructure.scheduling.RiskAlertScheduler;
 import com.gymflow.notification.infrastructure.web.SendRemindersResponse;
 import com.gymflow.plan.infrastructure.web.CreatePlanRequest;
 import com.gymflow.plan.infrastructure.web.PlanResponse;
@@ -77,6 +78,9 @@ class NotificationIT {
 
     @Autowired
     private ExpirationReminderScheduler scheduler;
+
+    @Autowired
+    private RiskAlertScheduler riskAlertScheduler;
 
     @MockitoBean
     private EmailSender emailSender;
@@ -171,6 +175,37 @@ class NotificationIT {
                 "/api/v1/notifications/expiration-reminders", HttpMethod.POST, authenticated(otherAdminToken), SendRemindersResponse.class);
         assertThat(gymAAgain.getBody().sent()).isZero();
         assertThat(gymBAgain.getBody().sent()).isZero();
+    }
+
+    @Test
+    void gymAdmin_sendsRiskAlerts_returnsZeroWhenNobodyIsAtRisk() {
+        // Sin forma de producir "5+ días sin asistir" a través de la API en un test que corre en el momento — ver RiskIT.
+        // Esto prueba wiring/idempotencia con cero candidatos, no la regla de negocio en sí (esa la prueba RiskPolicyTest).
+        UUID planId = createPlan(gymAdminToken, 90, "50.00");
+        UUID memberId = createMember(gymAdminToken, "Recién", "Llegado", "recien@example.com");
+        contract(gymAdminToken, memberId, planId);
+
+        ResponseEntity<SendRemindersResponse> response = restTemplate.exchange(
+                "/api/v1/notifications/risk-alerts", HttpMethod.POST, authenticated(gymAdminToken), SendRemindersResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().sent()).isZero();
+        verifyNoMoreInteractions(emailSender);
+    }
+
+    @Test
+    void trainer_cannotTriggerRiskAlerts() {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/api/v1/notifications/risk-alerts", HttpMethod.POST, authenticated(trainerToken), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void riskAlertScheduler_processesEveryGymWithoutLeakingTenantContext() {
+        riskAlertScheduler.run();
+
+        assertThat(TenantContext.getCurrentTenantId()).isEqualTo(TenantContext.PLATFORM_TENANT_ID);
     }
 
     private UUID createPlan(String token, int durationDays, String price) {

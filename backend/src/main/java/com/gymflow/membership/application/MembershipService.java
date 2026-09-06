@@ -74,4 +74,9 @@ public class MembershipService {
         LocalDate today = LocalDate.now();
         return membershipRepository.findByStatusAndEndDateBetween(MembershipStatus.ACTIVE, today, today.plusDays(days));
     }
+
+    /** Todo el universo de membresías vigentes hoy, sin ventana superior — puerta pública para risk (Fase 14). */
+    public List<Membership> listActiveMemberships() {
+        return membershipRepository.findByStatusAndEndDateGreaterThanEqual(MembershipStatus.ACTIVE, LocalDate.now());
+    }
 }
