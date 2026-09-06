@@ -11,8 +11,17 @@ import org.springframework.data.repository.query.Param;
 
 public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 
-    /** Sigue filtrado por tenant igual que findAll()/findById() — Membership también extiende AbstractTenantEntity. */
-    List<Membership> findByMemberIdOrderByStartDateDesc(UUID memberId);
+    /**
+     * Sigue filtrado por tenant igual que findAll()/findById() — Membership
+     * también extiende AbstractTenantEntity. JOIN FETCH del plan (Fase 13):
+     * el portal necesita mostrar el nombre del plan, no solo su id, y como
+     * `open-in-view` está en false (application.yml) el proxy LAZY de
+     * `plan` no se puede inicializar más tarde en el controller — sin el
+     * join fetch, PortalMembershipResponse.from() explota con
+     * LazyInitializationException al llamar getPlan().getName().
+     */
+    @Query("select m from Membership m join fetch m.plan where m.member.id = :memberId order by m.startDate desc")
+    List<Membership> findByMemberIdOrderByStartDateDesc(@Param("memberId") UUID memberId);
 
     /**
      * Socios distintos con una membresía vigente (ACTIVE y no vencida

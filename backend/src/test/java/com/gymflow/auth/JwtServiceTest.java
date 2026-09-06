@@ -28,7 +28,7 @@ class JwtServiceTest {
     void issuedTokenParsesBackToTheSameClaims() {
         JwtService jwtService = new JwtService(properties(Duration.ofMinutes(15)));
         UUID gymId = UUID.randomUUID();
-        User user = new User(UUID.randomUUID(), "trainer@gymflow.dev", "irrelevant-hash", Role.TRAINER, gymId, true, java.time.Instant.now());
+        User user = new User(UUID.randomUUID(), "trainer@gymflow.dev", "irrelevant-hash", Role.TRAINER, gymId, null, true, java.time.Instant.now());
 
         String token = jwtService.issueAccessToken(user);
         AuthenticatedPrincipal principal = jwtService.parseAccessToken(token);
@@ -36,12 +36,27 @@ class JwtServiceTest {
         assertThat(principal.email()).isEqualTo("trainer@gymflow.dev");
         assertThat(principal.role()).isEqualTo(Role.TRAINER);
         assertThat(principal.gymId()).isEqualTo(gymId);
+        assertThat(principal.memberId()).isNull();
+    }
+
+    @Test
+    void memberTokenCarriesTheLinkedMemberId() {
+        JwtService jwtService = new JwtService(properties(Duration.ofMinutes(15)));
+        UUID gymId = UUID.randomUUID();
+        UUID memberId = UUID.randomUUID();
+        User user = new User(UUID.randomUUID(), "socio@gymflow.dev", "irrelevant-hash", Role.MEMBER, gymId, memberId, true, java.time.Instant.now());
+
+        AuthenticatedPrincipal principal = jwtService.parseAccessToken(jwtService.issueAccessToken(user));
+
+        assertThat(principal.role()).isEqualTo(Role.MEMBER);
+        assertThat(principal.gymId()).isEqualTo(gymId);
+        assertThat(principal.memberId()).isEqualTo(memberId);
     }
 
     @Test
     void superAdminTokenHasNoGymId() {
         JwtService jwtService = new JwtService(properties(Duration.ofMinutes(15)));
-        User user = new User(UUID.randomUUID(), "root@gymflow.dev", "irrelevant-hash", Role.SUPER_ADMIN, null, true, java.time.Instant.now());
+        User user = new User(UUID.randomUUID(), "root@gymflow.dev", "irrelevant-hash", Role.SUPER_ADMIN, null, null, true, java.time.Instant.now());
 
         AuthenticatedPrincipal principal = jwtService.parseAccessToken(jwtService.issueAccessToken(user));
 
@@ -51,7 +66,7 @@ class JwtServiceTest {
     @Test
     void expiredTokenFailsToParse() throws InterruptedException {
         JwtService jwtService = new JwtService(properties(Duration.ofMillis(1)));
-        User user = new User(UUID.randomUUID(), "gone@gymflow.dev", "irrelevant-hash", Role.GYM_ADMIN, UUID.randomUUID(), true, java.time.Instant.now());
+        User user = new User(UUID.randomUUID(), "gone@gymflow.dev", "irrelevant-hash", Role.GYM_ADMIN, UUID.randomUUID(), null, true, java.time.Instant.now());
 
         String token = jwtService.issueAccessToken(user);
         Thread.sleep(20);

@@ -15,4 +15,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * filtro por gimnasio es manual — a propósito, no un olvido.
      */
     List<User> findByGymId(UUID gymId);
+
+    /** Fase 13: para saber si un socio ya tiene un login de portal antes de crear otro (un socio → a lo sumo un login). */
+    Optional<User> findByMemberId(UUID memberId);
 }

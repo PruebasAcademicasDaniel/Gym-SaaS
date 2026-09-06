@@ -38,6 +38,10 @@ public class User {
     @Column(name = "gym_id")
     private UUID gymId;
 
+    /** Solo lo usa role MEMBER — el socio (member) al que este login representa. Ver validateRoleAssignment. */
+    @Column(name = "member_id")
+    private UUID memberId;
+
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -49,39 +53,57 @@ public class User {
     }
 
     public User(String email, String passwordHash, Role role, UUID gymId) {
-        validateGymAssignment(role, gymId);
+        this(email, passwordHash, role, gymId, null);
+    }
+
+    /** Fase 13: constructor para logins de socio (role MEMBER), que necesitan memberId además de gymId. */
+    public User(String email, String passwordHash, Role role, UUID gymId, UUID memberId) {
+        validateRoleAssignment(role, gymId, memberId);
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
         this.gymId = gymId;
+        this.memberId = memberId;
         this.enabled = true;
     }
 
-    /** Reconstrucción completa (tests, mapeos) — la creación normal usa el constructor de arriba, que deja que la base asigne el id. */
-    public User(UUID id, String email, String passwordHash, Role role, UUID gymId, boolean enabled, Instant createdAt) {
-        validateGymAssignment(role, gymId);
+    /** Reconstrucción completa (tests, mapeos) — la creación normal usa los constructores de arriba, que dejan que la base asigne el id. */
+    public User(UUID id, String email, String passwordHash, Role role, UUID gymId, UUID memberId, boolean enabled, Instant createdAt) {
+        validateRoleAssignment(role, gymId, memberId);
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
         this.gymId = gymId;
+        this.memberId = memberId;
         this.enabled = enabled;
         this.createdAt = createdAt;
     }
 
     /**
-     * Invariante de tenant clave para toda la Fase 4: todo rol salvo
-     * SUPER_ADMIN necesita un gymId. Sin esto, un usuario mal creado con
-     * gymId null terminaría con acceso sin restricción (ver
-     * GymTenantIdentifierResolver — null significa "sin filtro").
+     * Dos invariantes de dominio en un solo lugar:
+     * (1) Fase 4 — todo rol salvo SUPER_ADMIN necesita un gymId. Sin esto,
+     * un usuario mal creado con gymId null terminaría con acceso sin
+     * restricción (ver GymTenantIdentifierResolver — null significa "sin
+     * filtro").
+     * (2) Fase 13 — memberId es obligatorio para MEMBER (un login de socio
+     * sin socio asociado no tiene sentido) y prohibido para cualquier otro
+     * rol (GYM_ADMIN/TRAINER/SUPER_ADMIN no representan a un socio).
      */
-    private static void validateGymAssignment(Role role, UUID gymId) {
+    private static void validateRoleAssignment(Role role, UUID gymId, UUID memberId) {
         boolean requiresGym = role != Role.SUPER_ADMIN;
         if (requiresGym && gymId == null) {
             throw new IllegalArgumentException("El rol " + role + " requiere un gymId.");
         }
         if (!requiresGym && gymId != null) {
             throw new IllegalArgumentException("SUPER_ADMIN no puede tener gymId — es de alcance de plataforma.");
+        }
+        boolean requiresMember = role == Role.MEMBER;
+        if (requiresMember && memberId == null) {
+            throw new IllegalArgumentException("El rol MEMBER requiere un memberId (el socio al que representa este login).");
+        }
+        if (!requiresMember && memberId != null) {
+            throw new IllegalArgumentException("Solo el rol MEMBER puede tener memberId.");
         }
     }
 
@@ -110,6 +132,10 @@ public class User {
 
     public UUID getGymId() {
         return gymId;
+    }
+
+    public UUID getMemberId() {
+        return memberId;
     }
 
     public boolean isEnabled() {

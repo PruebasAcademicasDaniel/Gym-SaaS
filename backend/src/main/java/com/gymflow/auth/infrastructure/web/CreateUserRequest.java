@@ -11,11 +11,14 @@ import java.util.UUID;
  * gymId solo lo usa un SUPER_ADMIN (para dar de alta al primer GYM_ADMIN
  * de un gimnasio nuevo — sin esto no habría forma de arrancar un gimnasio).
  * Si lo manda un GYM_ADMIN, se ignora: su propio gymId manda siempre — ver
- * UserController.
+ * UserController. memberId (Fase 13) es obligatorio cuando role es MEMBER
+ * — el socio al que se le da acceso al portal — e ignorado para cualquier
+ * otro rol.
  */
 public record CreateUserRequest(
         @NotBlank @Email String email,
         @NotBlank @Size(min = 8, message = "mínimo 8 caracteres") String password,
         @NotNull Role role,
-        UUID gymId) {
+        UUID gymId,
+        UUID memberId) {
 }

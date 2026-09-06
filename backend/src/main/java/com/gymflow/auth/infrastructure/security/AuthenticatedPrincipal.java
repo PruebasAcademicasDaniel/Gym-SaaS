@@ -8,5 +8,5 @@ import java.util.UUID;
  * enteramente a partir de los claims del JWT — no pega contra la base en
  * cada request.
  */
-public record AuthenticatedPrincipal(UUID userId, String email, Role role, UUID gymId) {
+public record AuthenticatedPrincipal(UUID userId, String email, Role role, UUID gymId, UUID memberId) {
 }

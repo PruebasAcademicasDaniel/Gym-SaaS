@@ -47,7 +47,7 @@ public class UserController {
             @Valid @RequestBody CreateUserRequest request,
             @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         UUID targetGymId = principal.role() == Role.SUPER_ADMIN ? request.gymId() : principal.gymId();
-        User user = userManagementService.create(targetGymId, request.email(), request.password(), request.role());
+        User user = userManagementService.create(targetGymId, request.email(), request.password(), request.role(), request.memberId());
         return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
     }
 

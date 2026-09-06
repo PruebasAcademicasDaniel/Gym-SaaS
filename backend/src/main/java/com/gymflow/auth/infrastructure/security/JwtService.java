@@ -20,6 +20,7 @@ public class JwtService {
     private static final String CLAIM_EMAIL = "email";
     private static final String CLAIM_ROLE = "role";
     private static final String CLAIM_GYM_ID = "gymId";
+    private static final String CLAIM_MEMBER_ID = "memberId";
 
     private final Key signingKey;
     private final JwtProperties properties;
@@ -41,6 +42,9 @@ public class JwtService {
         if (user.getGymId() != null) {
             builder.claim(CLAIM_GYM_ID, user.getGymId().toString());
         }
+        if (user.getMemberId() != null) {
+            builder.claim(CLAIM_MEMBER_ID, user.getMemberId().toString());
+        }
         return builder.compact();
     }
 
@@ -57,7 +61,9 @@ public class JwtService {
         Role role = Role.valueOf(claims.get(CLAIM_ROLE, String.class));
         String gymIdClaim = claims.get(CLAIM_GYM_ID, String.class);
         UUID gymId = gymIdClaim != null ? UUID.fromString(gymIdClaim) : null;
+        String memberIdClaim = claims.get(CLAIM_MEMBER_ID, String.class);
+        UUID memberId = memberIdClaim != null ? UUID.fromString(memberIdClaim) : null;
 
-        return new AuthenticatedPrincipal(userId, email, role, gymId);
+        return new AuthenticatedPrincipal(userId, email, role, gymId, memberId);
     }
 }

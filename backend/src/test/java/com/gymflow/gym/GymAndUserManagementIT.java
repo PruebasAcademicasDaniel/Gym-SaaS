@@ -126,7 +126,7 @@ class GymAndUserManagementIT {
         String trainerEmail = "trainer-" + UUID.randomUUID() + "@gymflow.dev";
 
         ResponseEntity<UserResponse> created = restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(gymAdminToken, new CreateUserRequest(trainerEmail, "Trainer123!", Role.TRAINER, null)), UserResponse.class);
+                authenticated(gymAdminToken, new CreateUserRequest(trainerEmail, "Trainer123!", Role.TRAINER, null, null)), UserResponse.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
         ResponseEntity<TokenResponse> loginResponse =
@@ -140,7 +140,7 @@ class GymAndUserManagementIT {
         String firstAdminEmail = "first-admin-" + UUID.randomUUID() + "@gymflow.dev";
 
         ResponseEntity<UserResponse> created = restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(superAdminToken, new CreateUserRequest(firstAdminEmail, "Secret123!", Role.GYM_ADMIN, newGym.getId())),
+                authenticated(superAdminToken, new CreateUserRequest(firstAdminEmail, "Secret123!", Role.GYM_ADMIN, newGym.getId(), null)),
                 UserResponse.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
@@ -152,7 +152,7 @@ class GymAndUserManagementIT {
     @Test
     void gymAdmin_cannotCreateSuperAdminThroughThisEndpoint() {
         ResponseEntity<String> response = restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(gymAdminToken, new CreateUserRequest("x-" + UUID.randomUUID() + "@gymflow.dev", "Secret123!", Role.SUPER_ADMIN, null)),
+                authenticated(gymAdminToken, new CreateUserRequest("x-" + UUID.randomUUID() + "@gymflow.dev", "Secret123!", Role.SUPER_ADMIN, null, null)),
                 String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -164,7 +164,7 @@ class GymAndUserManagementIT {
         String email = "sneaky-" + UUID.randomUUID() + "@gymflow.dev";
 
         ResponseEntity<UserResponse> response = restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(gymAdminToken, new CreateUserRequest(email, "Secret123!", Role.TRAINER, otherGym.getId())),
+                authenticated(gymAdminToken, new CreateUserRequest(email, "Secret123!", Role.TRAINER, otherGym.getId(), null)),
                 UserResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -177,14 +177,14 @@ class GymAndUserManagementIT {
     void gymAdmin_listsOnlyItsOwnGymsUsers() {
         String myTrainerEmail = "trainer-" + UUID.randomUUID() + "@gymflow.dev";
         restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(gymAdminToken, new CreateUserRequest(myTrainerEmail, "Secret123!", Role.TRAINER, null)), UserResponse.class);
+                authenticated(gymAdminToken, new CreateUserRequest(myTrainerEmail, "Secret123!", Role.TRAINER, null, null)), UserResponse.class);
 
         Gym otherGym = gymRepository.saveAndFlush(new Gym("Otro Gym", "otro-" + UUID.randomUUID()));
         String otherAdminEmail = "admin2-" + UUID.randomUUID() + "@gymflow.dev";
         userRepository.save(new User(otherAdminEmail, passwordEncoder.encode(PASSWORD), Role.GYM_ADMIN, otherGym.getId()));
         String otherAdminToken = login(otherAdminEmail, PASSWORD);
         restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(otherAdminToken, new CreateUserRequest("trainer2-" + UUID.randomUUID() + "@gymflow.dev", "Secret123!", Role.TRAINER, null)),
+                authenticated(otherAdminToken, new CreateUserRequest("trainer2-" + UUID.randomUUID() + "@gymflow.dev", "Secret123!", Role.TRAINER, null, null)),
                 UserResponse.class);
 
         ResponseEntity<UserResponse[]> myUsers =
@@ -198,7 +198,7 @@ class GymAndUserManagementIT {
     void gymAdmin_disablesOwnUser_andTheDisabledUserCannotLoginAnymore() {
         String trainerEmail = "trainer-" + UUID.randomUUID() + "@gymflow.dev";
         ResponseEntity<UserResponse> created = restTemplate.exchange("/api/v1/users", HttpMethod.POST,
-                authenticated(gymAdminToken, new CreateUserRequest(trainerEmail, "Secret123!", Role.TRAINER, null)), UserResponse.class);
+                authenticated(gymAdminToken, new CreateUserRequest(trainerEmail, "Secret123!", Role.TRAINER, null, null)), UserResponse.class);
         UUID trainerId = created.getBody().id();
 
         ResponseEntity<Void> disableResponse = restTemplate.exchange("/api/v1/users/" + trainerId + "/disable", HttpMethod.PATCH,

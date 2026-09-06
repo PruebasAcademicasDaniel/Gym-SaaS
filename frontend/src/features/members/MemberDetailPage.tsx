@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getMember, updateMember, deactivateMember } from './api'
+import { getMember, updateMember, deactivateMember, grantPortalAccess } from './api'
 import { useAuth } from '@/shared/auth/AuthContext'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
@@ -21,6 +21,8 @@ export function MemberDetailPage() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
+  const [portalForm, setPortalForm] = useState({ email: '', password: '' })
+  const [portalAccessGranted, setPortalAccessGranted] = useState(false)
 
   const memberQuery = useQuery({
     queryKey: ['member', memberId],
@@ -59,6 +61,14 @@ export function MemberDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['member', memberId] })
       queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+
+  const grantPortalAccessMutation = useMutation({
+    mutationFn: () => grantPortalAccess(memberId as string, portalForm),
+    onSuccess: () => {
+      setPortalAccessGranted(true)
+      setPortalForm({ email: '', password: '' })
     },
   })
 
@@ -148,6 +158,51 @@ export function MemberDetailPage() {
           </div>
         )}
       </Card>
+
+      {canManage && (
+        <Card className="max-w-xl p-5">
+          <h2 className="text-base font-semibold text-stone-900">Acceso al portal</h2>
+          <p className="mt-1 text-sm text-stone-500">
+            Creá un login para que este socio consulte su membresía, pagos y asistencia desde el portal. Un socio solo
+            puede tener un acceso.
+          </p>
+          {portalAccessGranted ? (
+            <p className="mt-4 text-sm text-emerald-700">
+              Acceso creado. Compartile el email y la contraseña al socio por fuera del sistema.
+            </p>
+          ) : (
+            <form
+              className="mt-4 flex flex-col gap-4"
+              onSubmit={(event) => {
+                event.preventDefault()
+                grantPortalAccessMutation.mutate()
+              }}
+            >
+              <TextField
+                label="Email"
+                type="email"
+                required
+                value={portalForm.email}
+                onChange={(event) => setPortalForm({ ...portalForm, email: event.target.value })}
+              />
+              <TextField
+                label="Contraseña"
+                type="password"
+                required
+                minLength={8}
+                value={portalForm.password}
+                onChange={(event) => setPortalForm({ ...portalForm, password: event.target.value })}
+              />
+              {grantPortalAccessMutation.isError && <ErrorBanner error={grantPortalAccessMutation.error} />}
+              <div>
+                <Button type="submit" disabled={grantPortalAccessMutation.isPending}>
+                  {grantPortalAccessMutation.isPending ? 'Creando…' : 'Dar acceso al portal'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Card>
+      )}
 
       <MembershipsSection memberId={member.id} />
       <AttendanceSection memberId={member.id} />

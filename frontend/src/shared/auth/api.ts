@@ -18,6 +18,7 @@ export interface MeResponse {
   email: string
   role: Role
   gymId: string | null
+  memberId: string | null
 }
 
 export function login(email: string, password: string): Promise<TokenResponse> {
