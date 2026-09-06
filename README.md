@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 10 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 11 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -48,7 +48,7 @@ npm install
 npm run dev
 ```
 
-La app queda en `http://localhost:5173`. El proxy de Vite reenvía `/api/*` a `http://localhost:8080`.
+La app queda en `http://localhost:5173`. El frontend llama al backend directo por `VITE_API_URL` (default `http://localhost:8080`) desde el navegador — sin proxy de Vite (ver sección Frontend).
 
 ## Variables de entorno
 
@@ -135,6 +135,26 @@ GET /api/v1/dashboard   { activeMembers, membershipsExpiringSoon, revenueThisMon
 
 Sin entidad ni tabla propia — agrega datos de `member`/`membership`/`payment` a través de su capa de aplicación pública (`MembershipService`, `PaymentService`), nunca de sus repositorios. `membershipsExpiringSoon` usa una ventana de 7 días (se va a alinear con el recordatorio de la Fase 12). Deliberadamente **sin** "clientes en riesgo" — la Fase 0 lo menciona en el MVP, pero el motor de detección no existe hasta la Fase 14; mostrar un número inventado sería peor que no mostrar nada. Solo `GYM_ADMIN` — la vista "acotada a sus socios" de `TRAINER` que pide la matriz de permisos necesita el modelo de asignación trainer↔socio que la Fase 0 dejó fuera del MVP, así que queda diferida junto con esa asignación.
 
+## Frontend
+
+Portal administrativo — React 19 + TypeScript + Vite + Tailwind 4, `react-router` 8 (data router) y `@tanstack/react-query` 5.
+
+```
+src/
+├── app/            bootstrap, router, QueryClient
+├── shared/         auth (contexto + tokens), cliente HTTP, componentes UI, formatters
+├── features/       auth, dashboard, members, plans, memberships, payments, attendance
+└── routes/         layout admin, guards de sesión y de rol
+```
+
+**Sin proxy de Vite a propósito.** El cliente HTTP (`shared/api/httpClient.ts`) hace `fetch` absoluto a `VITE_API_URL` directamente desde el navegador, en vez de pasar por el proxy `/api` de Vite. Un proxy corre *dentro* del proceso de Vite — en `docker compose` eso es el contenedor del frontend, donde `localhost:8080` no llega al contenedor del backend (haría falta `http://backend:8080`, mientras que el navegador sí necesita `http://localhost:8080`, el puerto publicado en el host). Pidiendo desde el navegador se evita el problema por completo: siempre se resuelve contra el puerto publicado en el host, sea Vite local o en Docker. Verificado con `docker compose up` + CORS preflight real.
+
+**Auth**: `AuthContext` guarda `{ accessToken, refreshToken }` en `localStorage` y expone `user` (via `GET /api/v1/auth/me`, no decodificando el JWT a mano), `login()`, `logout()`. `httpClient` reintenta una vez con refresh automático ante un 401; si el refresh también falla, limpia la sesión y `ProtectedRoute` redirige a `/login`.
+
+**Permisos en el cliente son solo UX, no seguridad** — ocultan botones/rutas que el backend igual rechazaría con 403/`@PreAuthorize`. `RequireRole` guarda `/admin/dashboard` (solo `GYM_ADMIN` — ver sección Dashboard) y `/admin/members/new`; el resto de las pantallas se renderizan para ambos roles y condicionan qué acciones mostrar (`GYM_ADMIN` con CRUD completo, `TRAINER` de solo lectura salvo en Asistencia, donde también escribe).
+
+**Verificación de esta fase**: `npm run build` (type-check + build) y `npm run lint` limpios; `docker compose up` con las tres imágenes reales, confirmando que Vite sirve el bundle sin errores de transformación, que `VITE_API_URL` se inyecta correctamente en runtime, y que el preflight CORS + login real funcionan con el `Origin` del frontend. **No se probó de forma interactiva en un navegador** (sin herramienta de automatización de navegador disponible en esta sesión) — recomendado abrir `http://localhost:5173` manualmente para confirmar la experiencia visual antes de dar la fase por cerrada del todo.
+
 ## Testing backend
 
 ```bash
@@ -151,4 +171,4 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 10 — Dashboard.** Primer módulo sin entidad propia: agrega datos de `member`/`membership`/`payment` a través de sus servicios de aplicación. Verificado con Postgres real que las queries JPQL agregadas nuevas (`count`/`sum` contra entidades `@TenantId`) respetan el aislamiento de tenant igual que los métodos derivados por nombre. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 11 — Frontend.** Portal administrativo completo (login, dashboard, socios, planes, membresías, pagos, asistencia) consumiendo toda la API construida en las Fases 3 a 10. Primera fase que toca `frontend/` desde el scaffold de la Fase 1. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
