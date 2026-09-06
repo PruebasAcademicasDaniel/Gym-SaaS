@@ -1,5 +1,6 @@
 package com.gymflow.auth.infrastructure.persistence;
 
+import com.gymflow.auth.domain.Role;
 import com.gymflow.auth.domain.User;
 import java.util.List;
 import java.util.Optional;
@@ -9,6 +10,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
+
+    /** Fase 17: para saber si ya existe algún SUPER_ADMIN antes de bootstrapear uno nuevo al arrancar en producción. */
+    boolean existsByRole(Role role);
 
     /**
      * User no extiende AbstractTenantEntity (ver Fase 4), así que acá el

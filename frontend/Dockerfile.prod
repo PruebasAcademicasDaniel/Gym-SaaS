@@ -1,0 +1,22 @@
+# El Dockerfile normal de este directorio (Dockerfile) corre `vite dev` — pensado para
+# desarrollo con hot reload, nunca para servir tráfico real. Este es el build de producción:
+# arma el bundle estático optimizado y lo sirve con nginx, sin el runtime de Node.
+
+# ---- Build ----
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+# VITE_API_URL se hornea en el bundle en tiempo de BUILD, no de arranque del contenedor —
+# Vite reemplaza import.meta.env.VITE_API_URL por un literal al compilar. Pasarla como
+# variable de entorno del contenedor en runtime (como con el backend) no tendría efecto.
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
+
+# ---- Serve ----
+FROM nginx:1.27-alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

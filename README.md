@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 16 completas (MVP funcional cerrado en la Fase 14). El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 17 completas (MVP funcional cerrado en la Fase 14). El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -175,7 +175,36 @@ frontend       npm ci && npm run lint && npm run build — Node 22
 docker-build   docker build de backend/ y frontend/ (solo si los dos jobs anteriores pasan)
 ```
 
-No hay job de deploy todavía — llevar estas imágenes a un entorno real es la Fase 17. `docker-build` no publica nada a ningún registry, solo confirma que ambas imágenes arman sin error antes de gastar minutos de CI en eso si el código ya está roto.
+No hay job de deploy todavía — llevar estas imágenes a un entorno real es la Fase 17 (ver abajo). `docker-build` no publica nada a ningún registry, solo confirma que ambas imágenes arman sin error antes de gastar minutos de CI en eso si el código ya está roto.
+
+## Deploy
+
+`docker-compose.prod.yml` — separado de `docker-compose.yml` (desarrollo) a propósito: frontend con build estático servido por nginx (no el dev server de Vite), backend sin el perfil `dev` (sin usuario/datos de prueba), y **ninguna variable con default inseguro** — todas obligatorias.
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Variables requeridas (`.env` en la raíz del servidor, o exportadas antes del comando):
+
+```
+DB_USERNAME              usuario de Postgres
+DB_PASSWORD              contraseña de Postgres
+JWT_SECRET                mín. 32 bytes reales — generar con: openssl rand -base64 48
+CORS_ALLOWED_ORIGINS      el dominio real del frontend, ej. https://gymflow.midominio.com
+VITE_API_URL              el dominio/puerto real del backend — se hornea en el bundle en BUILD time, no en runtime (ver frontend/Dockerfile.prod)
+```
+
+Opcionales — si se setean **ambas**, `SuperAdminBootstrapper` crea ese usuario `SUPER_ADMIN` la primera vez que arranca contra una base vacía (una sola vez; reinicios posteriores no lo tocan ni lo duplican). Sin esto, una instalación nueva no tiene ninguna forma de loguearse — el perfil `dev` es la única otra forma de tener un `SUPER_ADMIN`, y nunca corre fuera de ese perfil:
+
+```
+SUPER_ADMIN_EMAIL
+SUPER_ADMIN_PASSWORD
+```
+
+**Importante — no correr `docker-compose.prod.yml` en la misma máquina que `docker-compose.yml` sin fijarse bien**: ambos comparten directorio, así que Compose podría inferir el mismo nombre de proyecto y pisarse contenedores/red/volumen entre sí. `docker-compose.prod.yml` ya fija su propio `name: gymflow-prod` y tags de imagen (`gymflow-backend:prod`/`gymflow-frontend:prod`) para evitar esto — confirmado corriendo ambos stacks de verdad, no solo leyendo el YAML.
+
+`/actuator/health` (público, sin auth) es el endpoint a apuntar desde cualquier healthcheck externo (load balancer, Kubernetes, un PaaS) — ya lo usa el propio `healthcheck` del servicio `backend` en `docker-compose.prod.yml`.
 
 ## Testing backend
 
@@ -193,6 +222,6 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fases 0 a 16 completas.** MVP funcional (sección 7 del documento de arquitectura) cerrado en la Fase 14; Fase 15 le agregó una primera capa de IA (mensajes personalizados a clientes en riesgo, sin proveedor externo conectado todavía); Fase 16 automatiza build/test/lint en CI (ver sección arriba). Backend verificado con `mvn verify` (Testcontainers, no mocks para la base) en cada fase; frontend probado de forma interactiva en un navegador real desde la Fase 13 en adelante (login, CRUD completo, portal del cliente, dashboard, manejo de errores). Detalle fase por fase, decisiones y correcciones sobre la marcha: documento de arquitectura (Fase 0, roadmap de 19 fases).
+**Fases 0 a 17 completas.** MVP funcional (sección 7 del documento de arquitectura) cerrado en la Fase 14; Fase 15 le agregó una primera capa de IA (mensajes personalizados a clientes en riesgo, sin proveedor externo conectado todavía); Fase 16 automatiza build/test/lint en CI; Fase 17 deja todo listo para un deploy real — `docker-compose.prod.yml`, bootstrap del primer `SUPER_ADMIN` sin perfil dev, y arregló un bug real encontrado en el camino: `/actuator/health` devolvía 500 en vez de 200 porque a `spring-boot-starter-actuator` nunca se lo agregó como dependencia (ver sección Deploy). Backend verificado con `mvn verify` (Testcontainers, no mocks para la base) en cada fase; frontend probado de forma interactiva en un navegador real desde la Fase 13 en adelante (login, CRUD completo, portal del cliente, dashboard, manejo de errores). Detalle fase por fase, decisiones y correcciones sobre la marcha: documento de arquitectura (Fase 0, roadmap de 19 fases).
 
-Próximo: Fase 17 (deploy a un entorno real) o Fase 18 (hardening comercial) — sin decidir cuál todavía.
+Próximo: Fase 18 (hardening comercial — rate limiting, auditoría completa, planes SaaS con feature flags reales).

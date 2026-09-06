@@ -40,3 +40,7 @@ gymflow:
       refresh-token-ttl: P7D
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  bootstrap:
+    # Ver SuperAdminBootstrapper — vacío por defecto (no hace nada) hasta que se seteen ambas en producción.
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}
