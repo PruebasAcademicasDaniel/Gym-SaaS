@@ -26,4 +26,7 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
     @Query("select count(m) from Membership m where m.status = :status and m.endDate between :from and :to")
     long countByStatusAndEndDateBetween(
             @Param("status") MembershipStatus status, @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /** Mismo criterio que countByStatusAndEndDateBetween, pero trayendo las filas — para el módulo notification (Fase 12). */
+    List<Membership> findByStatusAndEndDateBetween(MembershipStatus status, LocalDate from, LocalDate to);
 }

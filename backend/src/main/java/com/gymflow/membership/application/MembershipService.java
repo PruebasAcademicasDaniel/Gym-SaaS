@@ -68,4 +68,10 @@ public class MembershipService {
         LocalDate today = LocalDate.now();
         return membershipRepository.countByStatusAndEndDateBetween(MembershipStatus.ACTIVE, today, today.plusDays(days));
     }
+
+    /** Mismo criterio que countExpiringWithinDays, pero devolviendo las membresías — puerta pública para notification (Fase 12). */
+    public List<Membership> listExpiringWithinDays(int days) {
+        LocalDate today = LocalDate.now();
+        return membershipRepository.findByStatusAndEndDateBetween(MembershipStatus.ACTIVE, today, today.plusDays(days));
+    }
 }

@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para gimnasios pequeños y medianos: socios, membresías, pagos, asistencia y detección de clientes en riesgo de abandono.
 
-Monorepo, Fases 0 a 11 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
+Monorepo, Fases 0 a 12 completas. El análisis de arquitectura completo — multi-tenancy, roles, modelo de datos, roadmap de 19 fases — vive en el documento de Fase 0.
 
 ## Estructura
 
@@ -133,7 +133,17 @@ Primer endpoint donde `TRAINER` escribe, no solo lee — la matriz de permisos d
 GET /api/v1/dashboard   { activeMembers, membershipsExpiringSoon, revenueThisMonth }   GYM_ADMIN
 ```
 
-Sin entidad ni tabla propia — agrega datos de `member`/`membership`/`payment` a través de su capa de aplicación pública (`MembershipService`, `PaymentService`), nunca de sus repositorios. `membershipsExpiringSoon` usa una ventana de 7 días (se va a alinear con el recordatorio de la Fase 12). Deliberadamente **sin** "clientes en riesgo" — la Fase 0 lo menciona en el MVP, pero el motor de detección no existe hasta la Fase 14; mostrar un número inventado sería peor que no mostrar nada. Solo `GYM_ADMIN` — la vista "acotada a sus socios" de `TRAINER` que pide la matriz de permisos necesita el modelo de asignación trainer↔socio que la Fase 0 dejó fuera del MVP, así que queda diferida junto con esa asignación.
+Sin entidad ni tabla propia — agrega datos de `member`/`membership`/`payment` a través de su capa de aplicación pública (`MembershipService`, `PaymentService`), nunca de sus repositorios. `membershipsExpiringSoon` usa una ventana de 7 días (la misma que usa el recordatorio de la Fase 12). Deliberadamente **sin** "clientes en riesgo" — la Fase 0 lo menciona en el MVP, pero el motor de detección no existe hasta la Fase 14; mostrar un número inventado sería peor que no mostrar nada. Solo `GYM_ADMIN` — la vista "acotada a sus socios" de `TRAINER` que pide la matriz de permisos necesita el modelo de asignación trainer↔socio que la Fase 0 dejó fuera del MVP, así que queda diferida junto con esa asignación.
+
+## Notificaciones
+
+```
+POST /api/v1/notifications/expiration-reminders   {}   GYM_ADMIN — dispara sobre el propio gimnasio; responde { sent: n }
+```
+
+Además, un `@Scheduled` diario (7am) recorre **todos** los gimnasios y corre el mismo chequeo para cada uno — es el único lugar del proyecto que setea `TenantContext` a mano fuera de `JwtAuthenticationFilter` (un job en background no tiene un JWT del que sacar el tenant). Cada gimnasio se procesa en su propio `try/finally`, limpiando el contexto antes de pasar al siguiente, para que un error en un gimnasio no deje su tenant pegado en el contexto para el resto de la corrida.
+
+Un recordatorio se manda una sola vez por membresía (`UNIQUE(membership_id, type)` en la base, no solo en memoria) — como la fecha de vencimiento de una membresía no cambia, "ya se avisó" es un hecho permanente, no algo que dependa de una ventana de fechas. Sin email cargado en el socio, no hay a quién avisarle — se salta sin error. El canal de envío es un puerto (`EmailSender`) con un único adapter que loguea (`LoggingEmailSender`) — no hay SMTP real configurado todavía, matching "no agregar infraestructura hasta que haga falta" (Fase 0); cuando exista un proveedor real, se agrega un adapter nuevo sin tocar `NotificationService`. Sin tipo de notificación para "cliente en riesgo" — igual que en el dashboard, esperando el motor de la Fase 14.
 
 ## Frontend
 
@@ -171,4 +181,6 @@ Sin tenant resuelto (arranque de la app, o un `SUPER_ADMIN` sin `gymId`) el sist
 
 ## Estado
 
-**Fase 11 — Frontend.** Portal administrativo completo (login, dashboard, socios, planes, membresías, pagos, asistencia) consumiendo toda la API construida en las Fases 3 a 10. Primera fase que toca `frontend/` desde el scaffold de la Fase 1. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+**Fase 12 — Notificaciones.** Recordatorios de vencimiento por email (disparo manual + `@Scheduled` diario cross-tenant). Primer módulo que maneja `TenantContext` a mano fuera de `JwtAuthenticationFilter` — verificado con un test dedicado a que no se filtre entre gimnasios en la misma corrida. Botón "Enviar recordatorios" agregado al dashboard del frontend. Ver el roadmap completo (Fase 0 a 18) en el documento de arquitectura.
+
+**Fase 11 (referencia) — Frontend.** Portal administrativo completo (login, dashboard, socios, planes, membresías, pagos, asistencia) consumiendo toda la API construida en las Fases 3 a 10. Primera fase que tocó `frontend/` desde el scaffold de la Fase 1. **Verificado por build/lint/CORS/logs, no interactivamente en un navegador** (sin herramienta de automatización disponible en la sesión que la implementó) — pendiente probarlo a mano.
